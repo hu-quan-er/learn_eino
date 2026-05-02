@@ -51,18 +51,20 @@ state.Messages = append(state.Messages, schema.UserMessage("before:middleware"))
 ### `AfterChatModel`
 
 ```go
-last.Content += " | after:middleware"
+adk.AddSessionValue(ctx, "after_marker", last.Content+" | after:middleware")
 ```
 
-它会在模型返回后继续改 state。
+本课没有强行去改“当前这条已经发出的输出事件”，而是把 `AfterChatModel` 的结果写进 session，再由下一个 agent 读出来。
+
+这样更接近它在真实工程里的常见用法。
 
 ## 5. 本课真正要记住的事
 
 1. `AgentMiddleware` 适合简单、静态扩展
 2. 它能在模型调用前后改 `ChatModelAgentState`
 3. `AdditionalInstruction` 是最轻量的插桩点
-4. 如果你需要更灵活的上下文传播和 wrapper，后面要看 `ChatModelAgentMiddleware`
-5. `AgentMiddleware` 现在仍然有用，但更偏基础能力
+4. `AfterChatModel` 很适合把结果写到 session 或做后处理副作用
+5. 如果你需要更灵活的上下文传播和 wrapper，后面要看 `ChatModelAgentMiddleware`
 
 ## 6. 官方资料
 

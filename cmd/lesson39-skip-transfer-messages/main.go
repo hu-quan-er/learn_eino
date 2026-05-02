@@ -7,66 +7,44 @@ import (
 	"strings"
 
 	"github.com/cloudwego/eino/adk"
+	"github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/schema"
 )
 
-type skipTransferAgent struct {
-	name        string
-	description string
-	runFn       func(context.Context, *adk.AgentInput, ...adk.AgentRunOption) *adk.AsyncIterator[*adk.AgentEvent]
-}
+type parentTransferModel struct{}
+
+type childEchoModel struct{}
 
 func main() {
 	ctx := context.Background()
 
-	runCase(ctx, "default history with transfer messages")
+	runCase(ctx, "default transfer history")
 	fmt.Println()
 	runCase(ctx, "skip transfer messages", adk.WithSkipTransferMessages())
 }
 
 func runCase(ctx context.Context, title string, opts ...adk.AgentRunOption) {
-	router := &skipTransferAgent{
-		name:        "skip_router",
-		description: "emit note and transfer",
-		runFn: func(ctx context.Context, input *adk.AgentInput, _ ...adk.AgentRunOption) *adk.AsyncIterator[*adk.AgentEvent] {
-			iter, gen := adk.NewAsyncIteratorPair[*adk.AgentEvent]()
-
-			event := adk.EventFromMessage(
-				schema.AssistantMessage("router note: 这段消息默认会进入下游 history。", nil),
-				nil,
-				schema.Assistant,
-				"",
-			)
-			event.AgentName = "skip_router"
-			gen.Send(event)
-			gen.Send(&adk.AgentEvent{
-				AgentName: "skip_router",
-				Action:    adk.NewTransferToAgentAction("skip_child"),
-			})
-			gen.Close()
-			return iter
-		},
+	parentAgent, err := adk.NewChatModelAgent(ctx, &adk.ChatModelAgentConfig{
+		Name:        "ParentAgent",
+		Description: "transfer to child agent",
+		Instruction: "你负责把任务转交给 ChildAgent。",
+		Model:       &parentTransferModel{},
+	})
+	if err != nil {
+		log.Fatalf("create parent agent failed: %v", err)
 	}
 
-	child := &skipTransferAgent{
-		name:        "skip_child",
-		description: "inspect messages it received",
-		runFn: func(ctx context.Context, input *adk.AgentInput, _ ...adk.AgentRunOption) *adk.AsyncIterator[*adk.AgentEvent] {
-			iter, gen := adk.NewAsyncIteratorPair[*adk.AgentEvent]()
-			event := adk.EventFromMessage(
-				schema.AssistantMessage(fmt.Sprintf("child inputs(%d)=%s", len(input.Messages), summarizeTransferInputs(input.Messages)), nil),
-				nil,
-				schema.Assistant,
-				"",
-			)
-			event.AgentName = "skip_child"
-			gen.Send(event)
-			gen.Close()
-			return iter
-		},
+	childAgent, err := adk.NewChatModelAgent(ctx, &adk.ChatModelAgentConfig{
+		Name:        "ChildAgent",
+		Description: "echo all messages it receives",
+		Instruction: "你负责打印自己收到的全部输入。",
+		Model:       &childEchoModel{},
+	})
+	if err != nil {
+		log.Fatalf("create child agent failed: %v", err)
 	}
 
-	root, err := adk.SetSubAgents(ctx, router, []adk.Agent{child})
+	root, err := adk.SetSubAgents(ctx, parentAgent, []adk.Agent{childAgent})
 	if err != nil {
 		log.Fatalf("set sub agents failed: %v", err)
 	}
@@ -90,29 +68,56 @@ func runCase(ctx context.Context, title string, opts ...adk.AgentRunOption) {
 		if err != nil {
 			log.Fatalf("read message failed: %v", err)
 		}
-		fmt.Printf("agent=%s content=%s\n", event.AgentName, message.Content)
+		if strings.TrimSpace(message.Content) == "" && len(message.ToolCalls) == 0 {
+			continue
+		}
+		fmt.Printf("agent=%s role=%s content=%s\n", event.AgentName, event.Output.MessageOutput.Role, message.Content)
 	}
 }
 
-func (a *skipTransferAgent) Name(context.Context) string {
-	return a.name
+func (m *parentTransferModel) Generate(_ context.Context, _ []*schema.Message, _ ...model.Option) (*schema.Message, error) {
+	return schema.AssistantMessage("我会把这个请求交给 ChildAgent。", []schema.ToolCall{
+		{
+			ID: "transfer_call_1",
+			Function: schema.FunctionCall{
+				Name:      adk.TransferToAgentToolName,
+				Arguments: `{"agent_name":"ChildAgent"}`,
+			},
+		},
+	}), nil
 }
 
-func (a *skipTransferAgent) Description(context.Context) string {
-	return a.description
+func (m *parentTransferModel) Stream(ctx context.Context, input []*schema.Message, opts ...model.Option) (*schema.StreamReader[*schema.Message], error) {
+	message, err := m.Generate(ctx, input, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return schema.StreamReaderFromArray([]*schema.Message{message}), nil
 }
 
-func (a *skipTransferAgent) Run(ctx context.Context, input *adk.AgentInput, options ...adk.AgentRunOption) *adk.AsyncIterator[*adk.AgentEvent] {
-	return a.runFn(ctx, input, options...)
+func (m *parentTransferModel) WithTools(_ []*schema.ToolInfo) (model.ToolCallingChatModel, error) {
+	return m, nil
 }
 
-func summarizeTransferInputs(messages []adk.Message) string {
-	parts := make([]string, 0, len(messages))
-	for i, message := range messages {
+func (m *childEchoModel) Generate(_ context.Context, input []*schema.Message, _ ...model.Option) (*schema.Message, error) {
+	parts := make([]string, 0, len(input))
+	for _, message := range input {
 		if message == nil {
 			continue
 		}
-		parts = append(parts, fmt.Sprintf("[%d]%s=%s", i, message.Role, message.Content))
+		parts = append(parts, fmt.Sprintf("%s=%s", message.Role, message.Content))
 	}
-	return strings.Join(parts, " | ")
+	return schema.AssistantMessage(strings.Join(parts, " | "), nil), nil
+}
+
+func (m *childEchoModel) Stream(ctx context.Context, input []*schema.Message, opts ...model.Option) (*schema.StreamReader[*schema.Message], error) {
+	message, err := m.Generate(ctx, input, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return schema.StreamReaderFromArray([]*schema.Message{message}), nil
+}
+
+func (m *childEchoModel) WithTools(_ []*schema.ToolInfo) (model.ToolCallingChatModel, error) {
+	return m, nil
 }

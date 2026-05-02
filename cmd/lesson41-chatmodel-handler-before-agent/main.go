@@ -78,6 +78,10 @@ func main() {
 		if strings.TrimSpace(message.Content) == "" && len(message.ToolCalls) == 0 {
 			continue
 		}
+		if strings.TrimSpace(message.Content) == "" && len(message.ToolCalls) > 0 {
+			fmt.Printf("agent=%s role=%s tool_calls=%s\n", event.AgentName, event.Output.MessageOutput.Role, joinToolCallNames(message.ToolCalls))
+			continue
+		}
 		fmt.Printf("agent=%s role=%s content=%s\n", event.AgentName, event.Output.MessageOutput.Role, message.Content)
 	}
 }
@@ -140,4 +144,12 @@ func (m *handlerToolModel) Stream(ctx context.Context, input []*schema.Message, 
 
 func (m *handlerToolModel) WithTools(_ []*schema.ToolInfo) (model.ToolCallingChatModel, error) {
 	return m, nil
+}
+
+func joinToolCallNames(toolCalls []schema.ToolCall) string {
+	names := make([]string, 0, len(toolCalls))
+	for _, toolCall := range toolCalls {
+		names = append(names, toolCall.Function.Name)
+	}
+	return strings.Join(names, ",")
 }

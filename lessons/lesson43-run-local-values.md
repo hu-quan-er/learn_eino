@@ -51,7 +51,7 @@ value, found, err := adk.GetRunLocalValue(ctx, "trace_id")
 adk.DeleteRunLocalValue(ctx, "trace_id")
 ```
 
-本课在 `AfterModelRewriteState(...)` 里把结果追加到最终消息里，所以你能直接看到它确实存在并且被删掉了。
+本课在 `AfterModelRewriteState(...)` 里把 run-local 的读取结果写进 session，再由下一个 agent 读出来，所以你能直接看到它确实存在并且被删掉了。
 
 ## 5. 本课真正要记住的事
 

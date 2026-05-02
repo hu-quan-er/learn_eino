@@ -252,6 +252,111 @@
 - 目标：理解 agent tool 输入如何映射到子 agent
   `default request / custom schema / full chat history`
 
+### 第 36 课：用 SetSubAgents 跑通自定义 Agent 转交
+
+- 代码：`cmd/lesson36-set-subagents-transfer/main.go`
+- 讲义：`lessons/lesson36-set-subagents-transfer.md`
+- 目标：理解普通 agent 之间的底层转交
+  `SetSubAgents -> TransferToAgentAction -> child history`
+
+### 第 37 课：学会 ChatModelAgent 的 OutputKey
+
+- 代码：`cmd/lesson37-chatmodel-output-key/main.go`
+- 讲义：`lessons/lesson37-chatmodel-output-key.md`
+- 目标：理解 ChatModelAgent 输出如何自动写入 session
+  `OutputKey -> session value -> next agent`
+
+### 第 38 课：学会自定义 HistoryRewriter
+
+- 代码：`cmd/lesson38-history-rewriter/main.go`
+- 讲义：`lessons/lesson38-history-rewriter.md`
+- 目标：理解如何定制下游 agent 的输入历史
+  `AgentWithOptions -> WithHistoryRewriter`
+
+### 第 39 课：学会 WithSkipTransferMessages
+
+- 代码：`cmd/lesson39-skip-transfer-messages/main.go`
+- 讲义：`lessons/lesson39-skip-transfer-messages.md`
+- 目标：理解 transfer helper messages 对下游历史的影响
+  `transfer_to_agent -> skip transfer messages`
+
+### 第 40 课：学会 AgentMiddleware 的基础钩子
+
+- 代码：`cmd/lesson40-agent-middleware/main.go`
+- 讲义：`lessons/lesson40-agent-middleware.md`
+- 目标：理解 AdditionalInstruction、BeforeChatModel、AfterChatModel
+  `AgentMiddleware -> state/session side effect`
+
+### 第 41 课：学会 ChatModelAgentMiddleware 的 BeforeAgent
+
+- 代码：`cmd/lesson41-chatmodel-handler-before-agent/main.go`
+- 讲义：`lessons/lesson41-chatmodel-handler-before-agent.md`
+- 目标：理解运行时注入 instruction 和 tools
+  `BeforeAgent -> mutate run context`
+
+### 第 42 课：学会 WrapModel 和 SendEvent
+
+- 代码：`cmd/lesson42-handler-wrap-model/main.go`
+- 讲义：`lessons/lesson42-handler-wrap-model.md`
+- 目标：理解 handler 如何包模型并发送自定义事件
+  `SendEvent -> WrapModel`
+
+### 第 43 课：学会 Run Local Values
+
+- 代码：`cmd/lesson43-run-local-values/main.go`
+- 讲义：`lessons/lesson43-run-local-values.md`
+- 目标：理解当前一次运行的局部状态存取
+  `SetRunLocalValue -> GetRunLocalValue -> DeleteRunLocalValue`
+
+### 第 44 课：学会用 WithCallbacks 观察 Agent 运行
+
+- 代码：`cmd/lesson44-agent-callbacks/main.go`
+- 讲义：`lessons/lesson44-agent-callbacks.md`
+- 目标：理解 Agent 回调的启动和结束观测
+  `WithCallbacks -> OnStart / OnEnd`
+
+### 第 45 课：学会 EmitInternalEvents
+
+- 代码：`cmd/lesson45-emit-internal-events/main.go`
+- 讲义：`lessons/lesson45-emit-internal-events.md`
+- 目标：理解嵌套 AgentTool 的内部事件透传
+  `AgentTool -> EmitInternalEvents`
+
+### 第 46 课：做一个 App Bootstrap 分层
+
+- 代码：`cmd/lesson46-app-bootstrap/main.go`
+- 讲义：`lessons/lesson46-app-bootstrap.md`
+- 目标：理解 `cmd` 和 `internal/app` 的最小分层
+  `main -> app.New -> app.Run`
+
+### 第 47 课：学会用 Runner Factory 做依赖注入
+
+- 代码：`cmd/lesson47-runner-factory/main.go`
+- 讲义：`lessons/lesson47-runner-factory.md`
+- 目标：理解 runner 的统一装配方式
+  `Dependencies -> Factory -> Service`
+
+### 第 48 课：给 Agent 写单元测试
+
+- 代码：`cmd/lesson48-agent-testing/main.go`
+- 讲义：`lessons/lesson48-agent-testing.md`
+- 目标：理解 agent 逻辑如何放进可测试包
+  `internal package -> RunOnce -> go test`
+
+### 第 49 课：把 Interrupt / Resume 封装成 Service
+
+- 代码：`cmd/lesson49-interrupt-service/main.go`
+- 讲义：`lessons/lesson49-interrupt-service.md`
+- 目标：理解中断恢复的 service 化封装
+  `StartPublish -> PendingApproval -> ResumePublish`
+
+### 第 50 课：做一个完整 CLI 小项目
+
+- 代码：`cmd/lesson50-cli-mini-app/main.go`
+- 讲义：`lessons/lesson50-cli-mini-app.md`
+- 目标：理解一个完整 agent CLI 小应用的最小结构
+  `cmd -> internal/app -> workflow -> result`
+
 ## 目录结构
 
 ```text
@@ -327,8 +432,54 @@ eino/
 │   │   └── main.go
 │   ├── lesson34-agent-session-values/
 │   │   └── main.go
-│   └── lesson35-agent-tool-advanced/
+│   ├── lesson35-agent-tool-advanced/
+│   │   └── main.go
+│   ├── lesson36-set-subagents-transfer/
+│   │   └── main.go
+│   ├── lesson37-chatmodel-output-key/
+│   │   └── main.go
+│   ├── lesson38-history-rewriter/
+│   │   └── main.go
+│   ├── lesson39-skip-transfer-messages/
+│   │   └── main.go
+│   ├── lesson40-agent-middleware/
+│   │   └── main.go
+│   ├── lesson41-chatmodel-handler-before-agent/
+│   │   └── main.go
+│   ├── lesson42-handler-wrap-model/
+│   │   └── main.go
+│   ├── lesson43-run-local-values/
+│   │   └── main.go
+│   ├── lesson44-agent-callbacks/
+│   │   └── main.go
+│   ├── lesson45-emit-internal-events/
+│   │   └── main.go
+│   ├── lesson46-app-bootstrap/
+│   │   └── main.go
+│   ├── lesson47-runner-factory/
+│   │   └── main.go
+│   ├── lesson48-agent-testing/
+│   │   └── main.go
+│   ├── lesson49-interrupt-service/
+│   │   └── main.go
+│   └── lesson50-cli-mini-app/
 │       └── main.go
+├── internal/
+│   ├── lesson46app/
+│   │   ├── agent.go
+│   │   ├── app.go
+│   │   └── config.go
+│   ├── lesson47factory/
+│   │   └── factory.go
+│   ├── lesson48testing/
+│   │   ├── agent.go
+│   │   └── agent_test.go
+│   ├── lesson49service/
+│   │   └── service.go
+│   └── lesson50app/
+│       ├── agents.go
+│       ├── app.go
+│       └── config.go
 └── lessons/
     ├── lesson01-chatmodel.md
     ├── lesson02-stream.md
@@ -364,7 +515,22 @@ eino/
     ├── lesson32-custom-resumable-agent.md
     ├── lesson33-custom-streaming-agent.md
     ├── lesson34-agent-session-values.md
-    └── lesson35-agent-tool-advanced.md
+    ├── lesson35-agent-tool-advanced.md
+    ├── lesson36-set-subagents-transfer.md
+    ├── lesson37-chatmodel-output-key.md
+    ├── lesson38-history-rewriter.md
+    ├── lesson39-skip-transfer-messages.md
+    ├── lesson40-agent-middleware.md
+    ├── lesson41-chatmodel-handler-before-agent.md
+    ├── lesson42-handler-wrap-model.md
+    ├── lesson43-run-local-values.md
+    ├── lesson44-agent-callbacks.md
+    ├── lesson45-emit-internal-events.md
+    ├── lesson46-app-bootstrap.md
+    ├── lesson47-runner-factory.md
+    ├── lesson48-agent-testing.md
+    ├── lesson49-interrupt-service.md
+    └── lesson50-cli-mini-app.md
 ```
 
 ## 运行前提
@@ -380,5 +546,6 @@ eino/
 
 - 先学最小组件怎么单独使用
 - 再学 Prompt、Stream、Tool、Agent、Compose
-- 再往后进入 Graph、多 Agent、Checkpoint、Agent 实现细节和项目骨架
+- 再往后进入 Graph、多 Agent、Checkpoint、Agent 实现细节
+- 最后收束到工程化分层、测试、service 和一个完整 CLI 小项目
 - 每一课只引入少量新概念，避免一次堆太多抽象

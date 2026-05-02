@@ -71,6 +71,10 @@ func runCase(ctx context.Context, title string, emit bool) {
 		if strings.TrimSpace(message.Content) == "" && len(message.ToolCalls) == 0 {
 			continue
 		}
+		if strings.TrimSpace(message.Content) == "" && len(message.ToolCalls) > 0 {
+			fmt.Printf("agent=%s role=%s tool_calls=%s\n", event.AgentName, event.Output.MessageOutput.Role, joinToolCallNames(message.ToolCalls))
+			continue
+		}
 		fmt.Printf("agent=%s role=%s content=%s\n", event.AgentName, event.Output.MessageOutput.Role, message.Content)
 	}
 }
@@ -139,4 +143,12 @@ func (a *innerAgent) Run(ctx context.Context, input *adk.AgentInput, _ ...adk.Ag
 	gen.Send(event)
 	gen.Close()
 	return iter
+}
+
+func joinToolCallNames(toolCalls []schema.ToolCall) string {
+	names := make([]string, 0, len(toolCalls))
+	for _, toolCall := range toolCalls {
+		names = append(names, toolCall.Function.Name)
+	}
+	return strings.Join(names, ",")
 }

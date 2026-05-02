@@ -13,11 +13,15 @@ import (
 
 type middlewareEchoModel struct{}
 
+type middlewareReaderAgent struct {
+	name string
+}
+
 func main() {
 	ctx := context.Background()
 
-	agent, err := adk.NewChatModelAgent(ctx, &adk.ChatModelAgentConfig{
-		Name:        "lesson40_agent",
+	chatAgent, err := adk.NewChatModelAgent(ctx, &adk.ChatModelAgentConfig{
+		Name:        "lesson40_chat_agent",
 		Description: "show AgentMiddleware hooks",
 		Instruction: "你是一个会回显输入的 agent。",
 		Model:       &middlewareEchoModel{},
@@ -30,12 +34,11 @@ func main() {
 					return nil
 				},
 				AfterChatModel: func(ctx context.Context, state *adk.ChatModelAgentState) error {
-					_ = ctx
 					if len(state.Messages) == 0 {
 						return nil
 					}
 					last := state.Messages[len(state.Messages)-1]
-					last.Content += " | after:middleware"
+					adk.AddSessionValue(ctx, "after_marker", last.Content+" | after:middleware")
 					return nil
 				},
 			},
@@ -45,7 +48,17 @@ func main() {
 		log.Fatalf("create chat model agent failed: %v", err)
 	}
 
-	iter := adk.NewRunner(ctx, adk.RunnerConfig{Agent: agent}).Query(ctx, "lesson40 原始问题")
+	reader := &middlewareReaderAgent{name: "lesson40_reader"}
+	workflow, err := adk.NewSequentialAgent(ctx, &adk.SequentialAgentConfig{
+		Name:        "lesson40_workflow",
+		Description: "run chat agent then inspect middleware side effect",
+		SubAgents:   []adk.Agent{chatAgent, reader},
+	})
+	if err != nil {
+		log.Fatalf("create lesson40 workflow failed: %v", err)
+	}
+
+	iter := adk.NewRunner(ctx, adk.RunnerConfig{Agent: workflow}).Query(ctx, "lesson40 原始问题")
 
 	fmt.Println("agent events:")
 	for {
@@ -95,4 +108,28 @@ func (m *middlewareEchoModel) Stream(ctx context.Context, input []*schema.Messag
 		return nil, err
 	}
 	return schema.StreamReaderFromArray([]*schema.Message{message}), nil
+}
+
+func (a *middlewareReaderAgent) Name(context.Context) string {
+	return a.name
+}
+
+func (a *middlewareReaderAgent) Description(context.Context) string {
+	return "read value written by AfterChatModel"
+}
+
+func (a *middlewareReaderAgent) Run(ctx context.Context, _ *adk.AgentInput, _ ...adk.AgentRunOption) *adk.AsyncIterator[*adk.AgentEvent] {
+	iter, gen := adk.NewAsyncIteratorPair[*adk.AgentEvent]()
+
+	value, _ := adk.GetSessionValue(ctx, "after_marker")
+	event := adk.EventFromMessage(
+		schema.AssistantMessage(fmt.Sprintf("reader saw after_marker=%v", value), nil),
+		nil,
+		schema.Assistant,
+		"",
+	)
+	event.AgentName = a.name
+	gen.Send(event)
+	gen.Close()
+	return iter
 }

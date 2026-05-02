@@ -16,12 +16,16 @@ type runLocalHandler struct {
 	*adk.BaseChatModelAgentMiddleware
 }
 
+type runLocalReaderAgent struct {
+	name string
+}
+
 func main() {
 	ctx := context.Background()
 
-	agent, err := adk.NewChatModelAgent(ctx, &adk.ChatModelAgentConfig{
-		Name:        "lesson43_agent",
-		Description: "show run local values in ChatModelAgent handlers",
+	chatAgent, err := adk.NewChatModelAgent(ctx, &adk.ChatModelAgentConfig{
+		Name:        "lesson43_chat_agent",
+		Description: "show run local values in handlers",
 		Instruction: "你是一个 run-local 演示 agent。",
 		Model:       &runLocalModel{},
 		Handlers: []adk.ChatModelAgentMiddleware{
@@ -32,7 +36,17 @@ func main() {
 		log.Fatalf("create chat model agent failed: %v", err)
 	}
 
-	iter := adk.NewRunner(ctx, adk.RunnerConfig{Agent: agent}).Query(ctx, "lesson43 怎么理解")
+	reader := &runLocalReaderAgent{name: "lesson43_reader"}
+	workflow, err := adk.NewSequentialAgent(ctx, &adk.SequentialAgentConfig{
+		Name:        "lesson43_workflow",
+		Description: "read run-local summary written by handler",
+		SubAgents:   []adk.Agent{chatAgent, reader},
+	})
+	if err != nil {
+		log.Fatalf("create lesson43 workflow failed: %v", err)
+	}
+
+	iter := adk.NewRunner(ctx, adk.RunnerConfig{Agent: workflow}).Query(ctx, "lesson43 怎么理解")
 
 	fmt.Println("agent events:")
 	for {
@@ -62,6 +76,7 @@ func (h *runLocalHandler) BeforeModelRewriteState(ctx context.Context, state *ad
 }
 
 func (h *runLocalHandler) AfterModelRewriteState(ctx context.Context, state *adk.ChatModelAgentState, mc *adk.ModelContext) (context.Context, *adk.ChatModelAgentState, error) {
+	_ = state
 	_ = mc
 
 	value, found, err := adk.GetRunLocalValue(ctx, "trace_id")
@@ -76,11 +91,7 @@ func (h *runLocalHandler) AfterModelRewriteState(ctx context.Context, state *adk
 		return ctx, state, err
 	}
 
-	if len(state.Messages) > 0 {
-		last := state.Messages[len(state.Messages)-1]
-		last.Content = fmt.Sprintf("%s | trace_found=%v trace=%v deleted=%v", last.Content, found, value, !stillFound)
-	}
-
+	adk.AddSessionValue(ctx, "run_local_summary", fmt.Sprintf("trace_found=%v trace=%v deleted=%v", found, value, !stillFound))
 	return ctx, state, nil
 }
 
@@ -98,4 +109,28 @@ func (m *runLocalModel) Stream(ctx context.Context, input []*schema.Message, opt
 		return nil, err
 	}
 	return schema.StreamReaderFromArray([]*schema.Message{message}), nil
+}
+
+func (a *runLocalReaderAgent) Name(context.Context) string {
+	return a.name
+}
+
+func (a *runLocalReaderAgent) Description(context.Context) string {
+	return "read run-local summary from session"
+}
+
+func (a *runLocalReaderAgent) Run(ctx context.Context, _ *adk.AgentInput, _ ...adk.AgentRunOption) *adk.AsyncIterator[*adk.AgentEvent] {
+	iter, gen := adk.NewAsyncIteratorPair[*adk.AgentEvent]()
+
+	value, _ := adk.GetSessionValue(ctx, "run_local_summary")
+	event := adk.EventFromMessage(
+		schema.AssistantMessage(fmt.Sprintf("reader saw run_local_summary=%v", value), nil),
+		nil,
+		schema.Assistant,
+		"",
+	)
+	event.AgentName = a.name
+	gen.Send(event)
+	gen.Close()
+	return iter
 }
